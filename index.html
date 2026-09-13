@@ -1,12 +1,225 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Johnson Counter Event Sequencer</title>
-  <style>
-    :root{--navy:#11253d;--blue:#327ee9;--deep:#1855aa;--line:#d8e5f2;--green:#168255;--red:#c2344b}*{box-sizing:border-box}body{margin:0;color:var(--navy);background:linear-gradient(135deg,#f7fbff,#edf3fb);font-family:Arial,sans-serif}.app{max-width:1060px;margin:auto;padding:36px 20px 56px}.hero{display:flex;justify-content:space-between;align-items:center;gap:28px;padding:30px;color:#fff;background:linear-gradient(120deg,#102943,#1e5fb9);border-radius:18px;box-shadow:0 16px 36px #1d4b7c33}.eyebrow{color:#a9d4ff;font-size:.76rem;font-weight:bold;letter-spacing:.12em;margin:0}h1{margin:4px 0 8px;font-size:clamp(1.7rem,4vw,2.7rem);line-height:1.08}h1 span{color:#9fd0ff}.hero p:last-child{color:#d9ebff}.counter-art{display:grid;grid-template-columns:repeat(2,64px);gap:10px;transform:rotate(8deg)}.counter-art span{display:grid;place-items:center;width:64px;height:64px;border:1px solid #ffffff45;border-radius:16px;background:#ffffff14;font-family:Consolas,monospace;font-weight:bold}.counter-art span:nth-child(1),.counter-art span:nth-child(4){background:#f4b942;color:#18304b}.panel{background:#ffffffed;border:1px solid var(--line);border-radius:14px;padding:20px;margin:16px 0;box-shadow:0 8px 18px #183e6910}.controls{display:flex;flex-wrap:wrap;gap:10px}button{border:0;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--deep));color:#fff;padding:11px 15px;font-weight:bold;cursor:pointer;box-shadow:0 5px 10px #1f67be38}button.secondary{background:linear-gradient(135deg,#607b92,#3c566d)}button.warning{background:linear-gradient(135deg,#e4872e,#ad4f09)}.status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.status-grid .panel{margin:0}.metric{position:relative;overflow:hidden}.metric:before{content:"";position:absolute;left:0;top:0;height:3px;width:100%;background:linear-gradient(90deg,var(--blue),#9dd1ff)}.metric span{display:block;color:#526677;font-size:.82rem;margin-bottom:7px}.metric strong{font-size:1.08rem}.metric:first-child strong{color:var(--deep);font-family:Consolas,monospace;font-size:1.65rem}.pass{color:var(--green)}.fault{color:var(--red)}.state-path{display:flex;flex-wrap:wrap;gap:8px}.state-node{padding:9px 11px;border-radius:8px;background:#edf5ff;border:1px solid #c7dbea;font-family:Consolas,monospace;font-weight:bold}.state-node.current{background:linear-gradient(135deg,var(--blue),var(--deep));border-color:var(--blue);color:#fff;box-shadow:0 5px 12px #2676d54d;transform:translateY(-2px)}.state-node.invalid{background:#fff1f2;border-color:#eaa4ae;color:var(--red)}.formula{color:#526677;font-family:Consolas,monospace;font-size:.85rem}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:700px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);font-size:.9rem}th{color:#526677;font-size:.78rem;text-transform:uppercase}@media(max-width:720px){.hero{padding:24px}.counter-art{grid-template-columns:repeat(2,52px)}.counter-art span{width:52px;height:52px}.status-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:420px){.hero{display:block}.counter-art{margin-top:22px}.status-grid{grid-template-columns:1fr}}
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Traffic Signal Event Sequencer</title>
+
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body><main class="app"><header class="hero"><div><p class="eyebrow">EC2201 DIGITAL SYSTEMS DEMO</p><h1>Johnson Counter<br><span>Event Sequencer</span></h1><p>Loading-bay safety controller using a 4-bit twisted-ring counter.</p></div><div class="counter-art"><span>Q0</span><span>Q1</span><span>Q2</span><span>Q3</span></div></header><section class="panel controls"><button id="stepButton">⚡ Clock +1</button><button id="runButton" class="secondary">Run 8 clocks</button><button id="faultButton" class="warning">⚠ Inject Q3 fault</button><button id="resetButton" class="secondary">↻ Reset</button></section><section class="status-grid" aria-live="polite"><article class="panel metric"><span>Current state</span><strong id="state">0000</strong></article><article class="panel metric"><span>Feedback (NOT Q3)</span><strong id="feedback">1</strong></article><article class="panel metric"><span>Current event</span><strong id="event">Idle / perimeter check</strong></article><article class="panel metric"><span>Status</span><strong id="status" class="pass">VALID</strong></article></section><section class="panel"><h2>Johnson state path</h2><div id="statePath" class="state-path"></div><p class="formula">Next state: Q0 = NOT Q3; Q1 = Q0; Q2 = Q1; Q3 = Q2</p></section><section class="panel"><h2>Transition trace</h2><div class="table-wrap"><table><thead><tr><th>Clock</th><th>State</th><th>Feedback</th><th>Next state</th><th>Event</th><th>Status</th></tr></thead><tbody id="traceBody"></tbody></table></div></section></main><script>
-const eventMap={"0000":"Idle / perimeter check","1000":"Authorize vehicle","1100":"Vehicle entry","1110":"Dock alignment","1111":"Unload enable","0111":"Unload complete","0011":"Vehicle exit","0001":"Gate secure / reset"};const validStates=Object.keys(eventMap);let state="0000",clock=0,trace=[];function nextState(v){return `${1-Number(v[3])}${v.slice(0,3)}`}function render(){const valid=Object.hasOwn(eventMap,state);document.querySelector("#state").textContent=state;document.querySelector("#feedback").textContent=1-Number(state[3]);document.querySelector("#event").textContent=eventMap[state]||"FAULT: illegal state";const status=document.querySelector("#status");status.textContent=valid?"VALID":"FAULT DETECTED";status.className=valid?"pass":"fault";document.querySelector("#statePath").innerHTML=validStates.map(s=>`<span class="state-node ${s===state?"current":""}">${s}</span>`).join("")+(valid?"":`<span class="state-node invalid">${state}</span>`);document.querySelector("#traceBody").innerHTML=trace.map(r=>`<tr><td>${r.clock}</td><td>${r.state}</td><td>${r.feedback}</td><td>${r.next}</td><td>${r.event}</td><td class="${r.valid?"pass":"fault"}">${r.valid?"VALID":"FAULT"}</td></tr>`).reverse().join("")}function step(fault=false){const current=state,feedback=1-Number(current[3]);let next=nextState(current);if(fault)next=`${next.slice(0,3)}${1-Number(next[3])}`;trace.push({clock,state:current,feedback,next,event:eventMap[current]||"FAULT: illegal state",valid:Object.hasOwn(eventMap,current)});state=next;clock++;render()}document.querySelector("#stepButton").onclick=()=>step();document.querySelector("#faultButton").onclick=()=>step(true);document.querySelector("#runButton").onclick=()=>{for(let i=0;i<8;i++)step()};document.querySelector("#resetButton").onclick=()=>{state="0000";clock=0;trace=[];render()};render();
-</script></body></html>
+
+<body>
+
+  <main class="app">
+
+    <!-- HEADER -->
+    <header class="hero">
+
+      <div>
+
+        <p class="eyebrow">
+          EC2201 DIGITAL SYSTEMS DEMO
+        </p>
+
+        <h1>
+          Traffic Signal<br>
+          <span>Event Sequencer</span>
+        </h1>
+
+        <p>
+          Smart traffic signal controller using a 4-bit twisted-ring counter.
+        </p>
+
+      </div>
+
+      <div
+        class="counter-art"
+        aria-label="Four-bit Johnson counter illustration">
+
+        <span>Q0</span>
+        <span>Q1</span>
+        <span>Q2</span>
+        <span>Q3</span>
+
+      </div>
+
+    </header>
+
+
+    <!-- JOHNSON COUNTER EXPLANATION -->
+    <section class="panel">
+
+      <h2>
+        What is a Johnson Sequence Counter?
+      </h2>
+
+      <p>
+        A Johnson Counter is a type of shift register counter,
+        also called a Twisted Ring Counter.
+      </p>
+
+      <p>
+        In this counter, the inverted output of the last flip-flop
+        is connected back to the input of the first flip-flop.
+      </p>
+
+      <p>
+        A 4-bit Johnson Counter produces 8 different states
+        before repeating.
+      </p>
+
+      <p>
+        <strong>Johnson Counter Sequence:</strong>
+      </p>
+
+      <p class="formula">
+        0000 → 1000 → 1100 → 1110 → 1111 → 0111 → 0011 → 0001 → 0000
+      </p>
+
+      <p>
+        In this project, each Johnson Counter state represents
+        a different event in the traffic signal system.
+      </p>
+
+    </section>
+
+
+    <!-- CONTROLS -->
+    <section
+      class="panel controls"
+      aria-label="Simulation controls">
+
+      <button id="stepButton">
+        ⚡ Clock +1
+      </button>
+
+      <button id="runButton" class="secondary">
+        Run 8 clocks
+      </button>
+
+      <button id="faultButton" class="warning">
+        ⚠ Inject Q3 fault
+      </button>
+
+      <button id="resetButton" class="secondary">
+        ↻ Reset
+      </button>
+
+    </section>
+
+
+    <!-- STATUS -->
+    <section
+      class="status-grid"
+      aria-live="polite">
+
+      <article class="panel metric">
+
+        <span>Current state</span>
+
+        <strong id="state">
+          0000
+        </strong>
+
+      </article>
+
+
+      <article class="panel metric">
+
+        <span>Feedback (NOT Q3)</span>
+
+        <strong id="feedback">
+          1
+        </strong>
+
+      </article>
+
+
+      <article class="panel metric">
+
+        <span>Current event</span>
+
+        <strong id="event">
+          Traffic system ready
+        </strong>
+
+      </article>
+
+
+      <article class="panel metric">
+
+        <span>Status</span>
+
+        <strong id="status" class="pass">
+          VALID
+        </strong>
+
+      </article>
+
+    </section>
+
+
+    <!-- STATE PATH -->
+    <section class="panel">
+
+      <h2>
+        Traffic Signal State Path
+      </h2>
+
+      <div
+        id="statePath"
+        class="state-path"
+        aria-label="Johnson counter state path">
+      </div>
+
+      <p class="formula">
+        Next state: Q0 = NOT Q3; Q1 = Q0; Q2 = Q1; Q3 = Q2
+      </p>
+
+    </section>
+
+
+    <!-- TRANSITION TRACE -->
+    <section class="panel">
+
+      <h2>
+        Traffic Signal Transition Trace
+      </h2>
+
+      <div class="table-wrap">
+
+        <table>
+
+          <thead>
+
+            <tr>
+              <th>Clock</th>
+              <th>State</th>
+              <th>Feedback</th>
+              <th>Next state</th>
+              <th>Traffic Event</th>
+              <th>Status</th>
+            </tr>
+
+          </thead>
+
+          <tbody id="traceBody">
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- JavaScript -->
+  <script src="app.js?v=2"></script>
+
+</body>
+
+</html>
